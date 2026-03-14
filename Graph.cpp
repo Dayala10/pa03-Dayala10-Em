@@ -1,4 +1,8 @@
 #include "Graph.hpp"
+#include <unordered_map>
+#include <unordered_set>
+#include<queue>
+#include<algorithm>
 using namespace std;
 
 // NodeInfo -----------------------------------------------------------------------------------------------------------------------------------
@@ -91,36 +95,55 @@ std::ostream& operator<<(std::ostream& out, const Connection& c) {
 
 // STUDENT TODO: IMPLEMENT
 void Graph::updateNode(int id, NodeInfo n) {
-    if (/* id is out of bounds — check if id is a valid index into nodes */ true) {
+    if (id < 0 || id >= nodes.size()) {
         cout << "Attempting to update node with id: " << id << " but node does not exist" << endl;
         return;
     }
+    
+    if(nodes[id] != nullptr){
+        delete nodes[id];
+    }
+    
 
-    return; //stub
+    NodeInfo* nNodeI = new NodeInfo(n);
+    nodes[id] = nNodeI;
+
 }
 
 // STUDENT TODO: IMPLEMENT
 NodeInfo* Graph::getNode(int id) const {
-    return nullptr; //stub
+    if(id >= nodes.size() || id < 0){
+        return nullptr;
+    }
+    return nodes[id]; //stub
 }
 
 // STUDENT TODO: IMPLEMENT
 void Graph::updateConnection(int v, int u, double w) {
-    if (/* v is out of bounds — check if v is a valid index into nodes */ true) {
+    if (v >= nodes.size() || v < 0) {
         cerr << "Attempting to update connection between " << v << " and " << u << " with weight " << w << " but " << v << " does not exist" << endl;
         exit(1);
     }
-    if (/* u is out of bounds — check if u is a valid index into nodes */ true) {
+    if (u >= nodes.size() || u < 0) {
         cerr << "Attempting to update connection between " << v << " and " << u << " with weight " << w << " but " << u << " does not exist" << endl;
         exit(1);
     }
 
-    return; //stub
+    adjacencyList[v][u] = Connection(v,u,w);
 }
 
 // STUDENT TODO: IMPLEMENT
 void Graph::clear() {
-    return; //stub
+    for(int i = 0; i < nodes.size(); i++){
+        if(nodes[i] != nullptr){
+            delete nodes[i];
+        }
+    }
+
+    //clear up everything else and reset
+    nodes.clear();
+    adjacencyList.clear();
+    size = 0;
 }
 
 

@@ -1,6 +1,9 @@
 // includes
 #include "NeuralNetwork.hpp"
 #include "Trace.hpp"
+#include <algorithm>
+#include <unordered_set>
+#include <queue>
 using namespace std;
 
 
@@ -9,42 +12,45 @@ using namespace std;
 
 // STUDENT TODO: IMPLEMENT
 void NeuralNetwork::eval() {
-    //stub
+    evaluating = true;
 }
 
 // STUDENT TODO: IMPLEMENT
 void NeuralNetwork::train() {
-    //stub
+    evaluating = false;
 }
 
 // STUDENT TODO: IMPLEMENT
 void NeuralNetwork::setLearningRate(double lr) {
-    //stub
+    learningRate = lr;
 }
 
 // STUDENT TODO: IMPLEMENT
 void NeuralNetwork::setInputNodeIds(std::vector<int> inputNodeIds) {
-    //stub
+    this->inputNodeIds = inputNodeIds;
 }
 
 // STUDENT TODO: IMPLEMENT
 void NeuralNetwork::setOutputNodeIds(std::vector<int> outputNodeIds) {
-    //stub
+    this->outputNodeIds = outputNodeIds;
 }
 
 // STUDENT TODO: IMPLEMENT
 vector<int> NeuralNetwork::getInputNodeIds() const {
-    return vector<int>(); //stub
+    return inputNodeIds; //done
 }
 
 // STUDENT TODO: IMPLEMENT
 vector<int> NeuralNetwork::getOutputNodeIds() const {
-    return vector<int>(); //stub
+    return outputNodeIds; //done
 }
 
 // STUDENT TODO: IMPLEMENT
 vector<double> NeuralNetwork::predict(DataInstance instance) {
 
+    //call flush to clear prevuous postActivation value
+    flush();
+    
     vector<double> input = instance.x;
 
     // error checking : size mismatch
@@ -61,6 +67,61 @@ vector<double> NeuralNetwork::predict(DataInstance instance) {
     // their value is passed forward directly.
     // Use visitPredictNode and visitPredictNeighbor to handle the neural network math
     // at each step of your traversal.
+
+
+
+  std::unordered_map<int, int> degree;
+  for(int i = 0; i < (int)nodes.size(); i++){
+    for(auto& [neighborID, connection] : adjacencyList[i]){
+        degree[neighborID]++;
+
+    }
+  }
+
+
+    std::queue<int> q; 
+
+  int j = 0;
+   for(int nodeID : inputNodeIds){
+       
+       nodes[nodeID]->postActivationValue = input[j++];  
+       q.push(nodeID);
+   }
+        
+    
+
+           
+          while(!q.empty()){
+               
+            int curr = q.front();
+             q.pop();
+                           
+            
+            if(std::find(inputNodeIds.begin(), inputNodeIds.end(), curr) == inputNodeIds.end()){
+                 
+                visitPredictNode(curr);
+            }
+
+            for(auto& [neighborID, connection] : adjacencyList[curr]){
+              
+                visitPredictNeighbor(connection);
+
+                degree[neighborID]--;
+                if(degree[neighborID] == 0){
+                     q.push(neighborID);
+                   
+                }
+              
+             
+            
+            }
+             
+              
+              
+    
+              
+            }
+
 
     vector<double> output;
     for (int i = 0; i < outputNodeIds.size(); i++) {
@@ -79,6 +140,7 @@ vector<double> NeuralNetwork::predict(DataInstance instance) {
     }
     return output;
 }
+
 // STUDENT TODO: IMPLEMENT
 bool NeuralNetwork::contribute(double y, double p) {
 
@@ -90,14 +152,25 @@ bool NeuralNetwork::contribute(double y, double p) {
     // The contributions map acts as your "visited" set and also stores each node's
     // computed contribution so it is not recomputed if reached by multiple paths.
 
+    contributions.clear();
 
-    flush();
+    for(auto& i : outputNodeIds){
+        contribute(i, y, p);
+    }
 
     return true;
 }
+
 // STUDENT TODO: IMPLEMENT
 double NeuralNetwork::contribute(int nodeId, const double& y, const double& p) {
+    // If this node is already in the contributions map, return its stored value immediately.
+    if(contributions.find(nodeId) != contributions.end()){
+        return contributions[nodeId];
+    }
+
+
     visitContributeStart(nodeId); // don't remove this line, used for visualization
+    
     // incomingContribution: the error signal returned by a recursive call on a neighbor.
     double incomingContribution = 0;
     // outgoingContribution: built up from this node's neighbors, then scaled by
@@ -105,7 +178,7 @@ double NeuralNetwork::contribute(int nodeId, const double& y, const double& p) {
     double outgoingContribution = 0;
     NodeInfo* currNode = nodes.at(nodeId);
 
-    // If this node is already in the contributions map, return its stored value immediately.
+    
 
     if (adjacencyList.at(nodeId).empty()) {
         // Base case: output node (no outgoing connections).
@@ -114,10 +187,34 @@ double NeuralNetwork::contribute(int nodeId, const double& y, const double& p) {
         outgoingContribution = -1 * ((y - p) / (p * (1 - p)));
     }
 
+    else{
+        for(auto& [nID, connection] : adjacencyList[nodeId]){
+            incomingContribution = contribute(nID,y,p);
+
+                    
+            visitContributeNeighbor(connection,incomingContribution,outgoingContribution);
+            
+        }
+        
+
+
+       
+
+    }
+
+     //input nodes no bias 
+        if(std::find(inputNodeIds.begin(), inputNodeIds.end(), nodeId) == inputNodeIds.end()){
+            visitContributeNode(nodeId, outgoingContribution);
+        }
+
+    
+
     // Before returning, store outgoingContribution in the contributions map.
+    contributions[nodeId] = outgoingContribution;
 
     return outgoingContribution;
 }
+
 // STUDENT TODO: IMPLEMENT
 bool NeuralNetwork::update() {
     // apply the derivative contributions
@@ -130,12 +227,44 @@ bool NeuralNetwork::update() {
     // bias update: bias = bias - (learningRate * delta)
     // weight update: weight = weight - (learningRate * delta)
     // reset the delta term for each node and connection to zero.
+     //for(NodeInfo* node : nodes) {
+         //if(node == nullptr)continue;
+         
+     for(int i = 0; i < (int)nodes.size(); i++){
+        if(nodes[i]){
+
+        nodes[i]->bias -= learningRate * nodes[i]->delta;
+        nodes[i]->delta = 0;
+
+        }
+     }
+        
+     
+     
+    //for(auto& neighbors : adjacencyList){
+        
+        //for(auto& [neighborID, connection] : neighbors){
+
+        for(int i = 0; i < (int)nodes.size(); i++){
+
+            if(nodes[i]){
+              for(auto& [neighborId, connection] : adjacencyList[i]){
+               connection.weight -= learningRate * connection.delta;
+               connection.delta = 0;
+            }
+          
+            }
+        }
+            
+        
     
-    flush();
+    batchSize = 0;
+
+    
+    
     return true;
     
 }
-
 
 
 
