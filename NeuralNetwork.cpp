@@ -154,7 +154,7 @@ bool NeuralNetwork::contribute(double y, double p) {
 
     contributions.clear();
 
-    for(auto& i : outputNodeIds){
+    for(auto& i : inputNodeIds){
         contribute(i, y, p);
     }
 
